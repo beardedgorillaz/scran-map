@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scran Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="console">
+    <section class="half half--top">
+      <div class="speaker" aria-hidden="true"></div>
+      <div class="bezel">
+        <div id="map" class="map"></div>
+        <div id="hud" class="hud"></div>
+      </div>
+      <div class="speaker" aria-hidden="true"></div>
+    </section>
+
+    <div class="hinge">
+      <button class="shoulder" type="button" data-key="l" aria-label="Zoom out" title="Zoom out">L</button>
+      <span class="hinge-name" aria-hidden="true">SCRAN</span>
+      <button class="shoulder" type="button" data-key="r" aria-label="Zoom in" title="Zoom in">R</button>
+    </div>
+
+    <section class="half half--bottom">
+      <div class="rail rail--left">
+        <div class="dpad" role="group" aria-label="Move between cards">
+          <button class="dpad-up" type="button" data-key="up" aria-label="Up"></button>
+          <button class="dpad-left" type="button" data-key="left" aria-label="Left"></button>
+          <span class="dpad-hub" aria-hidden="true"></span>
+          <button class="dpad-right" type="button" data-key="right" aria-label="Right"></button>
+          <button class="dpad-down" type="button" data-key="down" aria-label="Down"></button>
+        </div>
+        <span class="led" aria-hidden="true"></span>
+      </div>
+
+      <div class="bezel">
+        <div class="screen">
+          <div class="stage">
+            <main id="deck" class="deck"></main>
+            <div id="overlay" class="overlay" hidden></div>
+          </div>
+          <div id="hints" class="hints"></div>
+        </div>
+      </div>
+
+      <div class="rail rail--right">
+        <div class="face" role="group" aria-label="Action buttons">
+          <button class="face-x" type="button" data-key="x" aria-label="X: next filter" title="Next filter">X</button>
+          <button class="face-y" type="button" data-key="y" aria-label="Y: show the whole map" title="Show the whole map">Y</button>
+          <button class="face-a" type="button" data-key="a" aria-label="A: confirm" title="Confirm">A</button>
+          <button class="face-b" type="button" data-key="b" aria-label="B: back" title="Back">B</button>
+        </div>
+        <div class="pills">
+          <button class="log-btn" type="button" data-key="log" title="Open your log of game cards">LOG</button>
+          <button class="pill" type="button" data-key="select" title="Options">Select</button>
+          <button class="pill" type="button" data-key="start" title="Add a place">Start</button>
+        </div>
+      </div>
+    </section>
+  </div>
+  <input id="restore-file" type="file" accept=".js,.json" hidden>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
+  <script src="map-style.js"></script>
+  <script src="places.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
