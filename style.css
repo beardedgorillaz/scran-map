@@ -116,6 +116,8 @@ button { cursor: pointer; }
 .pill { flex: 1; min-width: 0; padding: 3px 2px; border: 0; background: var(--window); color: var(--ink); font-size: 0.75rem; line-height: 1.2; box-shadow: var(--notch), inset 0 -2px 0 #e2c871; }
 .pill:active { transform: translateY(1px); }
 
+.read-only [data-key="start"] { display: none; }
+
 /* The touch screen */
 .screen { display: grid; grid-template-rows: minmax(0, 1fr) auto; height: 100%; overflow: hidden; border-radius: 2px; background: var(--window); }
 .stage { position: relative; min-height: 0; }

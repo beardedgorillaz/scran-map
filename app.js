@@ -1,4 +1,5 @@
 const STORE_KEY = "scran-map.places";
+const OWNER_KEY = "scran-map.owner";
 const LONDON = [51.5074, -0.1278];
 const GEOCODER = "https://nominatim.openstreetmap.org";
 // Restaurants in Greater London on OpenStreetMap, counted 3 Nov 2026.
@@ -135,6 +136,20 @@ function niceDate(value) {
 
 /* Saved places */
 
+// Visitors see the published places.js and can't change anything. Opening the
+// site once with #edit (or having saved places already) makes this browser an
+// editor, and #view previews the visitor version. This only decides what the
+// page offers: edits stay in this browser until a new places.js is uploaded.
+const hash = location.hash.slice(1);
+let isEditor = hash === "edit";
+try {
+  isEditor = isEditor || localStorage.getItem(OWNER_KEY) === "1" || localStorage.getItem(STORE_KEY) !== null;
+  if (isEditor) localStorage.setItem(OWNER_KEY, "1");
+} catch { /* without storage, only #edit unlocks editing */ }
+const readOnly = !isEditor || hash === "view";
+document.body.classList.toggle("read-only", readOnly);
+window.addEventListener("hashchange", () => location.reload());
+
 // Places saved before the two ratings and symbols existed had one score out of 10.
 function migrate(p) {
   const out = { ...p };
@@ -173,6 +188,7 @@ let autoLocation = "";
 let sliding = false;
 
 function load() {
+  if (readOnly) return window.SEED_PLACES || [];
   try {
     const saved = localStorage.getItem(STORE_KEY);
     if (saved) return JSON.parse(saved);
@@ -181,6 +197,7 @@ function load() {
 }
 
 function save() {
+  if (readOnly) return false;
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(places));
     return true;
@@ -289,6 +306,7 @@ function renderHud() {
     ? `<span class="hud-chip hud-chip--tip">${draft?.lat != null ? "Drag the pin to adjust it" : "Tap the map to place the pin"}</span>`
     : `<span class="hud-chip">Y${now.getFullYear()} M${now.getMonth() + 1} W${Math.ceil(now.getDate() / 7)}</span>
        <span class="hud-chip">Rank: ${rankName(been.length)}</span>
+       ${readOnly ? '<span class="hud-chip">View only</span>' : ""}
        ${filter === "all" ? "" : `<span class="hud-chip hud-chip--tip">${esc(filterName(filter))}: ${visible().length}</span>`}`;
   $("#hud").innerHTML = `
     <button id="goal" class="hp" type="button" title="Restaurants covered. Tap to switch to ${switchTo}." aria-label="${name}: ${done} of ${total} restaurants covered, ${pctText}. Switch to ${switchTo}.">
@@ -346,17 +364,17 @@ function renderDeck() {
     </button>`).join("");
   const examples = places.filter((p) => p.example).length;
   const cards = shelf();
-  const navButtons = [["start", "add", "Add place"], ["y", "globe", "Whole map"], ["next", "next", "Next place"], ["r", "zoomin", "Zoom in"], ["l", "zoomout", "Zoom out"], ["select", "gear", "Options"]];
+  const navButtons = [readOnly ? ["log", "shop", "Browse cards"] : ["start", "add", "Add place"], ["y", "globe", "Whole map"], ["next", "next", "Next place"], ["r", "zoomin", "Zoom in"], ["l", "zoomout", "Zoom out"], ["select", "gear", "Options"]];
 
   $("#deck").innerHTML = `
     <div class="tabs">${tabs}</div>
     ${revealed ? `
-      ${examples ? `<div class="notice"><span>${examples} example ${examples === 1 ? "card" : "cards"}</span><button id="clear-examples" class="link" type="button">Remove examples</button></div>` : ""}
+      ${examples && !readOnly ? `<div class="notice"><span>${examples} example ${examples === 1 ? "card" : "cards"}</span><button id="clear-examples" class="link" type="button">Remove examples</button></div>` : ""}
       <div class="shelf">
         <div class="shelf-bar"><span>Log: ${cards.length} ${cards.length === 1 ? "card" : "cards"}</span><button id="hide-cards" class="link" type="button">Close log</button></div>
         ${cards.length
           ? `<ul class="grid">${cards.map((p) => `<li class="slot${p.id === cursorId ? " is-cursor" : ""}" data-slot="${esc(p.id)}"><button class="card card--${p.status}" type="button" data-id="${esc(p.id)}" title="${esc(p.name)}" aria-label="${esc(p.name)}: ${isRestaurant(p) ? "" : `${kindOf(p).label}, `}${esc(SYMBOLS[p.status].label)}${p.goodCoffee ? ", good coffee" : ""}">${cardInner(p)}</button></li>`).join("")}</ul>`
-          : `<p class="empty">${places.length ? "No cards with this symbol yet." : "Your log is empty. Press Start to add your first place."}</p>`}
+          : `<p class="empty">${places.length ? "No cards with this symbol yet." : readOnly ? "No places here yet." : "Your log is empty. Press Start to add your first place."}</p>`}
       </div>` : `
       <nav class="nav" aria-label="Map controls">
         ${navButtons.map(([key, art, text]) => `<button type="button" data-nav="${key}">${sprite(art)}<span>${text}</span></button>`).join("")}
@@ -431,7 +449,7 @@ function renderHints() {
     list: revealed
       ? [["A", "Open"], ["B", "Close log"], ["X", "Filter"], ["Y", "Whole map"], ["L R", "Zoom"]]
       : [["D-pad", "Move map"], ["A", "Log"], ["X", "Filter"], ["L R", "Zoom"]],
-    detail: [["◂▸", "Next card"], ["A", "Review"], ["B", "Put back"], ["L R", "Zoom"]],
+    detail: [["◂▸", "Next card"], ...(readOnly ? [] : [["A", "Review"]]), ["B", "Put back"], ["L R", "Zoom"]],
     review: [["A", "Save"], ["B", "Cancel"]],
     form: [["A", "Save"], ["B", "Cancel"], ["L R", "Zoom"]],
     options: [["B", "Back"]],
@@ -494,10 +512,10 @@ function showDetail(id) {
           ${rated(p) ? `<div>${p.visited ? `<span class="field-label">Latest visit: ${esc(niceDate(p.visited))}</span>` : ""}${ratingRow("Personal", "heart", p.pref)}${ratingRow("Food", "star", p.food)}</div>` : ""}
           ${p.note ? `<div><span class="field-label">Notes</span><p>${esc(p.note)}</p></div>` : ""}
           <div class="actions">
-            <button id="review" class="btn btn--primary" type="button">${rated(p) ? "Add review" : "I went! Review it"}</button>
+            ${readOnly ? "" : `<button id="review" class="btn btn--primary" type="button">${rated(p) ? "Add review" : "I went! Review it"}</button>`}
             <button id="back" class="btn" type="button">Put back</button>
-            <button id="edit" class="btn" type="button">Edit</button>
-            <button id="delete" class="btn btn--danger" type="button">Delete</button>
+            ${readOnly ? "" : `<button id="edit" class="btn" type="button">Edit</button>
+            <button id="delete" class="btn btn--danger" type="button">Delete</button>`}
           </div>
           ${p.past.length ? `<div><span class="field-label">Earlier visits (${p.past.length})</span>
             <ul class="visits">${p.past.map((v, i) => `<li class="visit">
@@ -506,7 +524,7 @@ function showDetail(id) {
                 <span>${esc(niceDate(v.visited))}</span>
                 <span class="visit-score">${sprite("heart")}${esc(v.pref)}</span>
                 <span class="visit-score">${sprite("star")}${esc(v.food)}</span>
-                <button class="link" type="button" data-remove-visit="${i}" aria-label="Remove the visit from ${esc(niceDate(v.visited))}">Remove</button>
+                ${readOnly ? "" : `<button class="link" type="button" data-remove-visit="${i}" aria-label="Remove the visit from ${esc(niceDate(v.visited))}">Remove</button>`}
               </div>
               ${v.note ? `<p>${esc(v.note)}</p>` : ""}
             </li>`).join("")}</ul></div>` : ""}
@@ -515,7 +533,7 @@ function showDetail(id) {
     </article>`;
 
   $("#back").addEventListener("click", putBack);
-  $("#review").addEventListener("click", () => showReview(p));
+  $("#review")?.addEventListener("click", () => showReview(p));
   overlay.querySelectorAll("[data-remove-visit]").forEach((b) => b.addEventListener("click", () => {
     if (!confirm("Remove this earlier visit?")) return;
     const past = p.past.filter((_, i) => i !== Number(b.dataset.removeVisit));
@@ -524,8 +542,8 @@ function showDetail(id) {
     renderDeck();
     showDetail(id);
   }));
-  $("#edit").addEventListener("click", () => showForm(p));
-  $("#delete").addEventListener("click", () => {
+  $("#edit")?.addEventListener("click", () => showForm(p));
+  $("#delete")?.addEventListener("click", () => {
     if (!confirm(`Delete ${p.name}?`)) return;
     places = places.filter((x) => x.id !== id);
     save();
@@ -586,7 +604,7 @@ async function putBack() {
 /* Add and edit */
 
 function showForm(existing) {
-  if (sliding) return;
+  if (sliding || readOnly) return;
   mode = "form";
   selectedId = null;
   draft = existing ? { ...existing } : { status: "love", pref: 3, food: 3, city: "", area: "", photo: "" };
@@ -676,7 +694,7 @@ function wireRatings() {
 /* Going back: a new review for a place already on the map */
 
 function showReview(p) {
-  if (sliding) return;
+  if (sliding || readOnly) return;
   mode = "review";
   selectedId = p.id;
   const firstVisit = !rated(p);
@@ -974,15 +992,17 @@ function showOptions() {
   selectedId = null;
   document.querySelectorAll(".slot.is-out").forEach((s) => s.classList.remove("is-out"));
   const cities = [...new Set(places.map((p) => p.city).filter(Boolean))].sort();
-  const examples = places.some((p) => p.example);
+  const examples = !readOnly && places.some((p) => p.example);
   openOverlay();
   overlay.innerHTML = `
     <div class="panel-scroll">
       <div class="options-title">Options</div>
       <div class="menu">
         ${cities.map((c) => `<button type="button" data-city="${esc(c)}">Go to ${esc(c)}<small>${places.filter((p) => p.city === c).length} places</small></button>`).join("")}
-        <button id="backup" type="button">Back up<small>Download your places as a file</small></button>
+        ${readOnly ? "" : `<button id="backup" type="button">Back up or publish<small>Download places.js. Upload it to GitHub to update your public map, notes and photos included</small></button>
         <button id="restore" type="button">Restore<small>Replace your places with a backup file</small></button>
+        <button id="preview" type="button">See what visitors see<small>Your published list, view only</small></button>`}
+        ${readOnly && isEditor ? '<button id="back-to-editing" type="button">Back to editing<small>Return to your own copy</small></button>' : ""}
         ${examples ? '<button id="opt-examples" type="button">Remove examples<small>Clear the sample cards</small></button>' : ""}
         <button id="opt-close" type="button">Back</button>
       </div>
@@ -991,8 +1011,10 @@ function showOptions() {
     fitPlaces(places.filter((p) => p.city === b.dataset.city));
     leaveOptions();
   }));
-  $("#backup").addEventListener("click", backUp);
-  $("#restore").addEventListener("click", () => $("#restore-file").click());
+  $("#backup")?.addEventListener("click", backUp);
+  $("#restore")?.addEventListener("click", () => $("#restore-file").click());
+  $("#preview")?.addEventListener("click", () => { location.hash = "view"; });
+  $("#back-to-editing")?.addEventListener("click", () => { location.hash = "edit"; });
   $("#opt-examples")?.addEventListener("click", () => {
     places = places.filter((p) => !p.example);
     save();
@@ -1060,7 +1082,7 @@ function press(key) {
   if (key === "r") return map.zoomIn();
   if (key === "y") return fitPlaces(visible());
   if (key === "start") {
-    if (mode === "review") return;
+    if (mode === "review" || readOnly) return;
     if (mode === "detail" || mode === "options") closeOverlay();
     return mode === "form" ? undefined : showForm(null);
   }
@@ -1093,7 +1115,7 @@ function press(key) {
     }
   } else if (mode === "detail") {
     if (key === "b") putBack();
-    if (key === "a") showReview(places.find((p) => p.id === selectedId));
+    if (key === "a" && !readOnly) showReview(places.find((p) => p.id === selectedId));
     if (key === "up" || key === "down") $(".sheet").scrollBy({ top: key === "up" ? -70 : 70 });
     if (key === "left" || key === "right") {
       const cards = shelf();
